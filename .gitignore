@@ -1,1 +1,6 @@
+.venv
 Daten_fuer_Christina
+swe_basins_timeseries
+swe_parameter_per_hydro_year
+
+*.pyc
