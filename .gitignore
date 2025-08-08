@@ -1,6 +1,13 @@
 .venv
+*.pyc
+
 Daten_fuer_Christina
 swe_basins_timeseries
 swe_parameter_per_hydro_year
+trend_swe_params
 
-*.pyc
+Tagesplan.txt
+variable_plot.txt
+
+trend_results*
+
