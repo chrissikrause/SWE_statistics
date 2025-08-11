@@ -63,17 +63,18 @@ for var in variables:
         # Mann-Kendall Test
         mk_result = mk.original_test(y)
         p_value = mk_result.p
-        trend = mk_result.trend  # 'increasing', 'decreasing', or 'no trend'
         significant = p_value < 0.05
+        avg=np.mean(y)
+        trend_percent=slope/avg if avg!=0 else None
 
         rows.append({
             'basin_id': basin,
             'theil_sen_slope': slope,
             'theil_sen_intercept': intercept,
-            'mann_kendall_trend': trend,
             'mann_kendall_p': p_value,
             'significant': significant,
-            'mean': np.mean(y)
+            'mean': avg,
+            'trend_percent': trend_percent
         })
 
     results[var] = pd.DataFrame(rows)
@@ -83,8 +84,4 @@ for var in variables:
 output_folder = "trend_swe_params"
 os.makedirs(output_folder, exist_ok=True)
 for var, res_df in results.items():
-    # Round values and save to files for each variable
-    float_cols = res_df.select_dtypes(include=['float']).columns
-    res_df[float_cols] = res_df[float_cols].round(4)
-
     res_df.to_csv(os.path.join(output_folder, f"trend_results_{var}.csv"), index=False)
