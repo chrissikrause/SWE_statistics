@@ -76,6 +76,7 @@ def calculate_discharge_parameters(input_folder, output_folder, var_name):
             max_row = group.loc[group[var_name].idxmax()]
             min_row = group.loc[group[var_name].idxmin()]
             annual_mean = group[var_name].mean()
+            annual_sum = group[var_name].sum()
 
             # === Seasonal stats ===
             seasons = {
@@ -108,6 +109,40 @@ def calculate_discharge_parameters(input_folder, output_folder, var_name):
                     seasonal_max[season] = {"value": None, "date": None, "day": None}
                     seasonal_min[season] = {"value": None, "date": None, "day": None}
 
+            
+            # === Monthly stats ===
+            monthly_sums = group.groupby(group['date'].dt.month)[var_name].sum()
+            
+            if not monthly_sums.empty:
+                # Month with highest discharge
+                max_discharge_month = monthly_sums.idxmax()
+                max_discharge_sum = monthly_sums.max()
+
+                # Month with lowest discharge
+                min_discharge_month = monthly_sums.idxmin()
+                min_discharge_sum = monthly_sums.min()
+
+                # Difference between max and min month
+                discharge_month_diff = max_discharge_sum - min_discharge_sum
+
+                # Time distance between max and min month (in months)
+                # Considers that the hydrological year runs from September to August
+                def calc_month_distance(month1, month2):
+                    # Convert to hydrological year (Sep=1, Oct=2, ..., Aug=12)
+                    hydro_month1 = month1 - 8 if month1 >= 9 else month1 + 4
+                    hydro_month2 = month2 - 8 if month2 >= 9 else month2 + 4
+
+                    return abs(hydro_month2 - hydro_month1)
+                
+                month_distance = calc_month_distance(max_discharge_month, min_discharge_month)
+            else:
+                max_discharge_month = None
+                max_discharge_sum = None
+                min_discharge_month = None
+                min_discharge_sum = None
+                discharge_month_diff = None
+                month_distance = None
+
             result_rows.append({
                 "basin_id": basin_id,
                 "hydro_year": year,
@@ -119,6 +154,17 @@ def calculate_discharge_parameters(input_folder, output_folder, var_name):
                 "date_of_min": min_row['date'],
                 "day_of_min": day_in_hydro_year(min_row['date']),
                 "annual_mean": annual_mean,
+                "annual_sum": annual_sum,
+
+                # Monthly parameters
+                "max_discharge_month": max_discharge_month,
+                "max_discharge_month_sum": max_discharge_sum,
+                "min_discharge_month": min_discharge_month, 
+                "min_discharge_month_sum": min_discharge_sum,
+                "discharge_month_diff": discharge_month_diff,
+                "month_distance": month_distance,
+
+                # Seasonal parameters
                 **{f"{season}_mean": seasonal_means[season] for season in seasons},
                 **{f"{season}_max": seasonal_max[season]["value"] for season in seasons},
                 **{f"{season}_max_date": seasonal_max[season]["date"] for season in seasons},
@@ -138,7 +184,7 @@ def calculate_discharge_parameters(input_folder, output_folder, var_name):
 
     if all_results:
         big_df = pd.concat(all_results, ignore_index=True)
-        big_df.to_csv(os.path.join(output_folder, f"{var_name}_params_all_basins.csv"),
+        big_df.to_csv(os.path.join(output_folder, f"river{var_name}_params_all_basins.csv"),
                       index=False, date_format='%Y-%m-%d')
         print(f"Combined results saved ({len(big_df)} rows)")
 
@@ -162,8 +208,8 @@ def main():
     "2060510690", "2060548280", "2060551950"
     ]
 
-    output_folder_ts = "riverdischarge_basins_timeseries"
-    output_folder_params = "riverdischarge_parameters"
+    output_folder_ts = "output/discharge/riverdischarge_basins_timeseries"
+    output_folder_params = "output/discharge/riverdischarge_parameter_per_hydro_year"
 
     path_fao = r"C:\Innolab\Daten_fuer_Christina\Data\Snow\FAO_Basins\riverdischarge_series_all_additive_no_pad.pkl"
     path_subbasins = r"C:\Innolab\Daten_fuer_Christina\Data\Snow\subbasins\riverdischarge_series_all_additive_no_pad.pkl"

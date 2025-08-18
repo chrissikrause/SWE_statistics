@@ -16,6 +16,7 @@
 import pandas as pd
 import os
 import glob
+import numpy as np
 from extract_time_series import load_time_series, extract_trend_data
 from hydrological_year import assign_hydrological_year, day_in_hydro_year
 
@@ -74,6 +75,7 @@ def calculate_precip_parameters(input_folder, output_folder, var_name):
             # Annual metrics
             annual_sum = group[var_name].sum()
             annual_mean = group[var_name].mean()
+            print(annual_sum)
             max_row = group.loc[group[var_name].idxmax()]
             min_row = group.loc[group[var_name].idxmin()]
 
@@ -133,6 +135,7 @@ def calculate_precip_parameters(input_folder, output_folder, var_name):
                         "max_val": None, "max_date": None, "max_day": None,
                         "min_val": None, "min_date": None, "min_day": None,
                     }
+            
 
             # Collect results
             row = {
@@ -159,6 +162,47 @@ def calculate_precip_parameters(input_folder, output_folder, var_name):
                 for metric in ["sum", "mean", "max_val", "max_date", "max_day", "min_val", "min_date", "min_day"]:
                     row[f"month_{month}_{metric}"] = monthly_data.get(month, {}).get(metric, None)
 
+            valid_month_sums = {m: monthly_data[m]["sum"] for m in monthly_data if monthly_data[m]["sum"] is not None}
+            if valid_month_sums:
+                max_month = max(valid_month_sums, key=valid_month_sums.get)
+                min_month = min(valid_month_sums, key=valid_month_sums.get)
+                max_month_sum = valid_month_sums[max_month]
+                min_month_sum = valid_month_sums[min_month]
+                diff_month_sum = max_month_sum - min_month_sum
+
+                def calc_month_distance(month1, month2):
+                    hydro_month1 = month1 - 8 if month1 >= 9 else month1 + 4
+                    hydro_month2 = month2 - 8 if month2 >= 9 else month2 + 4
+                    return abs(hydro_month2 - hydro_month1)
+
+                month_distance = calc_month_distance(max_month, min_month)
+
+                # Liste aller Monatsniederschläge (Summe) als Array
+                arr = np.array(list(valid_month_sums.values()))
+
+                # Variationskoeffizient
+                row["monthly_cv"] = arr.std() / arr.mean()
+               
+
+                # Precipitation Concentration Index (PCI, Oliver 1980)
+                row["pci"] = 100 * (np.sum((arr*1000)**2) / (np.sum((arr*1000)**2))) # zuerst m-> mm
+
+
+                row["max_month"] = max_month
+                row["min_month"] = min_month
+                row["max_month_sum"] = max_month_sum
+                row["min_month_sum"] = min_month_sum
+                row["month_sum_diff"] = diff_month_sum
+                row["month_distance_hydro"] = month_distance
+            else:
+                row["max_month"] = None
+                row["min_month"] = None
+                row["max_month_sum"] = None
+                row["min_month_sum"] = None
+                row["month_sum_diff"] = None
+                row["month_distance_hydro"] = None
+                row["monthly_cv"] = None
+                row["pci"] = None
             result_rows.append(row)
 
         result_df = pd.DataFrame(result_rows)
@@ -179,7 +223,7 @@ def calculate_precip_parameters(input_folder, output_folder, var_name):
 def main():
     start_year = 1980
     end_year = 2024
-    var_name = "precipitation"
+    var_name = "rain"
 
     basins = [
     "4025", "4018", "4021", "4012",
@@ -195,14 +239,14 @@ def main():
     "2060510690", "2060548280", "2060551950"
     ]
 
-    output_folder_ts = "precipitation_basins_timeseries"
-    output_folder_params = "precipitation_parameters"
+    output_folder_ts = "output/rain/precipitation_basins_timeseries"
+    output_folder_params = "output/rain/precipitation_parameter_per_hydro_year"
 
     path_fao = r"C:\Innolab\Daten_fuer_Christina\Data\Snow\FAO_Basins\rain_series_all_additive_no_pad.pkl"
     path_subbasins = r"C:\Innolab\Daten_fuer_Christina\Data\Snow\subbasins\rain_series_all_additive_no_pad.pkl"
 
     process_basins(start_year, end_year, basins, var_name, output_folder_ts,
-                   path_fao, path_subbasins)
+                    path_fao, path_subbasins)
 
 
     calculate_precip_parameters(output_folder_ts, output_folder_params, var_name)

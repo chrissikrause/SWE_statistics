@@ -110,11 +110,19 @@ def calculate_swe_parameters(input_folder, output_folder):
                 perc_snowfall_accum = snowfall_days_accum / len(accum_period) if len(accum_period) > 0 else None
 
                 constant_snowfall_date = None
-                for i in range(len(accum_period) - 2):
-                    window = accum_period['swe_diff'].iloc[i:i+3]
-                    if (window > 0).all():
-                        constant_snowfall_date = accum_period['date'].iloc[i]
-                        break
+                swe_values = accum_period['swe'].values
+                swe_diff = accum_period['swe_diff'].values
+                dates = accum_period['date']
+
+                imax = swe_values.argmax()  # Index of SWE max in accumulation period
+
+                for i in range(len(swe_diff)):
+                    if swe_diff[i] > 0:
+                        swe_start = swe_values[i]
+                        # Condition: no value smaller than swe_start until the peak
+                        if (swe_values[i:imax+1] >= swe_start).all():
+                            constant_snowfall_date = dates.iloc[i]
+                            break
             else:
                 snowfall_days_accum = None
                 perc_snowfall_accum = None
@@ -145,7 +153,7 @@ def calculate_swe_parameters(input_folder, output_folder):
                 'constant_snowfall_start_date': constant_snowfall_date,
                 'constant_snowfall_start_day': day_in_hydro_year(constant_snowfall_date) if constant_snowfall_date else None,
                 'summer_snowfall_accumulation': summer_snowfall_acc,
-                'summer_snowfall_count': summer_snowfall_count,
+                'summer_snowfall_days': summer_snowfall_count,
             })
 
         result_df = pd.DataFrame(result_rows)
@@ -181,14 +189,14 @@ def main():
     "2060510690", "2060548280", "2060551950"
     ]
 
-    output_timeseries_folder = "swe_basins_timeseries"
-    swe_params_folder = "swe_parameter_per_hydro_year"
+    output_timeseries_folder = "output/swe/swe_basins_timeseries"
+    swe_params_folder = "output/swe/swe_parameter_per_hydro_year"
 
     path_fao = r"C:\Innolab\Daten_fuer_Christina\Data\Snow\FAO_Basins\swe_era_series_all_additive_no_pad.pkl"
     path_subbasins = r"C:\Innolab\Daten_fuer_Christina\Data\Snow\subbasins\swe_era_series_all_additive_no_pad.pkl"
 
-    process_basins(start_year, end_year, basins, var_name, output_timeseries_folder,
-                   path_fao, path_subbasins)
+    # process_basins(start_year, end_year, basins, var_name, output_timeseries_folder,
+    #               path_fao, path_subbasins)
 
     calculate_swe_parameters(output_timeseries_folder, swe_params_folder)
 

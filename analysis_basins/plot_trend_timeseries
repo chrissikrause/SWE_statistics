@@ -1,0 +1,115 @@
+import random
+import pandas as pd
+import matplotlib.pyplot as plt
+from pathlib import Path
+import logging
+from typing import Optional
+
+logging.basicConfig(level=logging.INFO)
+
+def extract_basin_id_from_filename(filename: str) -> str:
+    """
+    Extract the basin_id as the part after the last underscore (_) in the filename (without extension).
+    Example: 'prefix_2050514730.csv' -> '2050514730'
+    """
+    stem = Path(filename).stem  # filename without extension
+    if '_' not in stem:
+        return stem  # no underscore, assume whole stem is basin_id
+    return stem.split('_')[-1]
+
+def find_file_for_basin(folder: Path, basin_id: str) -> Optional[Path]:
+    """
+    Find the file in folder that ends with '_{basin_id}.csv' or is exactly '{basin_id}.csv'
+    Returns the Path if found, else None.
+    """
+    for f in folder.glob("*.csv"):
+        stem = f.stem
+        if stem == basin_id or stem.endswith(f"_{basin_id}"):
+            return f
+    return None
+
+def select_random_basin_with_file(basin_df: pd.DataFrame, basin_id_col: str, timeseries_folder: Path) -> str:
+    # Extrahiere aus den Dateien im Ordner die Basin IDs (Teil nach letztem _)
+    available_basin_ids = set(extract_basin_id_from_filename(f.name) for f in timeseries_folder.glob("*.csv"))
+
+    # Filter die Basin IDs aus CSV auf die, die eine Datei haben
+    valid_basins = [b for b in basin_df[basin_id_col].astype(str).unique() if b in available_basin_ids]
+
+    if not valid_basins:
+        raise ValueError("No basin IDs found in CSV that have corresponding timeseries files.")
+
+    chosen = random.choice(valid_basins)
+    return chosen
+
+def load_timeseries_file(folder: Path, basin_id: str, date_col: str) -> pd.DataFrame:
+    """
+    Find the file in folder that matches basin_id and load it.
+    """
+    filepath = find_file_for_basin(folder, basin_id)
+    if filepath is None:
+        raise FileNotFoundError(f"No timeseries file found for basin_id '{basin_id}' in folder '{folder}'")
+    return pd.read_csv(filepath)
+
+def plot_timeseries_with_trend(
+    ts_df: pd.DataFrame,
+    slope: float,
+    date_col: str,
+    value_col: str,
+    basin_id: str
+) -> None:
+    ts_df = ts_df.sort_values(date_col)
+    x = ts_df[date_col].astype(float)  # hydro_year als float, sicherheitshalber
+    y = ts_df[value_col]
+
+    intercept = y.mean() - slope * x.mean()
+    trend_line = slope * x + intercept
+
+    logging.info(f"Slope from CSV: {slope}")
+    logging.info(f"x values range: {x.min()} to {x.max()}")
+    
+    plt.figure(figsize=(12, 6))
+    plt.plot(x, y, marker='o', label='Yearly Values')
+    plt.plot(x, trend_line, color='red', linewidth=2, label='Theil-Sen Trend')
+    plt.title(f"Basin ID: {basin_id}\nTheil-Sen slope: {slope:.8f}")
+    plt.xlabel(date_col)
+    plt.ylabel(value_col)
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
+def plot_random_basin_trend(
+    basin_file: str,
+    timeseries_folder: str,
+    basin_id_col: str = 'basin_id',
+    slope_col: str = 'theil_sen_slope',
+    date_col: str = 'date',
+    value_col: str = 'value',
+    random_seed: Optional[int] = None
+) -> None:
+    if random_seed is not None:
+        random.seed(random_seed)
+
+    basin_df = pd.read_csv(basin_file)
+    basin_df[basin_id_col] = basin_df[basin_id_col].astype(str).str.strip()
+
+    chosen_basin = select_random_basin_with_file(basin_df, basin_id_col, Path(timeseries_folder))
+    logging.info(f"Chosen basin_id: {chosen_basin}")
+
+    slope_values = basin_df.loc[basin_df[basin_id_col] == chosen_basin, slope_col].values
+    if len(slope_values) == 0:
+        raise ValueError(f"No slope value found for basin_id {chosen_basin}")
+    slope_value = slope_values[0]
+
+    ts_df = load_timeseries_file(Path(timeseries_folder), chosen_basin, date_col)
+    plot_timeseries_with_trend(ts_df, slope_value, date_col, value_col, chosen_basin)
+
+plot_random_basin_trend(
+    basin_file=r"C:\Innolab\output\rain\trend_rain_params\trend_results_monthly_cv.csv",
+    timeseries_folder=r"C:\Innolab\output\rain\precipitation_parameter_per_hydro_year",
+    basin_id_col='basin_id',
+    slope_col='theil_sen_slope',
+    date_col='hydro_year',
+    value_col='monthly_cv',
+    #random_seed=42  # for reproducible basin choice during debugging/testing
+)

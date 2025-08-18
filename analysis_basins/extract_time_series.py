@@ -99,8 +99,6 @@ def extract_trend_data(time_series_list, basin_id, start_year, end_year):
             if not outside.empty:
                 print("Values outside defined date range!")
             
-            #trend_series = trend_series*100
-
             return trend_series
 
     return None

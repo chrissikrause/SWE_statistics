@@ -2,21 +2,14 @@
 *.pyc
 
 Daten_fuer_Christina
-
-swe_basins_timeseries
-swe_parameter_per_hydro_year
-trend_swe_params
-
-riverdischarge_basins_timeseries
-riverdischarge_parameters
-trend_riverdischarge_params
-
-precipitation_basins_timeseries
-precipitation_parameters
-trend_precipitation_params
+output
+Maps*
 
 Tagesplan.txt
 variable_plot.txt
+Praktikum* 
 
 trend_results*
 
+*pdf
+*pptx
