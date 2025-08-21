@@ -1,4 +1,4 @@
-import os
+import os 
 import glob
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -11,7 +11,7 @@ from matplotlib.patches import Rectangle
 
 
 
-def plot_trend_analysis(df, title, file_name, save_path=None, dpi=300, variable_name="trend_percent"):
+def plot_trend_analysis(df, title, file_name, save_path=None, dpi=300):
     """
     Plot trend analysis results mit dynamischer Normalisierung
     - Variablen aus not_normalized_var oder mit 'day' im Namen werden NICHT normalisiert
@@ -35,10 +35,15 @@ def plot_trend_analysis(df, title, file_name, save_path=None, dpi=300, variable_
     ]
     custom_cmap = LinearSegmentedColormap.from_list("custom_cmap", colors, N=256)
 
-    
-    # Normalize if parameter is in unit day or month
+    # Dateiname checken, um zu entscheiden, welche Variable verwendet wird
     file_name_lower = file_name.lower()
     if any(param in file_name_lower for param in not_normalized_params) or "day" in file_name_lower:
+        variable_name = "theil_sen_slope"  # statt trend_percent
+    else:
+        variable_name = "trend_percent"
+
+    # Normalize if parameter is in unit day or month
+    if variable_name == "theil_sen_slope":
         # nicht normalisieren
         df["trend_normalized"] = df[variable_name]
         max_abs = df["trend_normalized"].abs().max()
@@ -82,7 +87,10 @@ def plot_trend_analysis(df, title, file_name, save_path=None, dpi=300, variable_
     sm = plt.cm.ScalarMappable(cmap=custom_cmap, norm=norm)
     sm.set_array([])
     cbar = fig.colorbar(sm, ax=ax, orientation='horizontal', fraction=0.15, pad=0.04)
-    cbar.set_label(f"Slope of Theil-Sen Estimator ({variable_name})")
+    if variable_name == "theil_sen_slope":
+        cbar.set_label("Normalized Theil Sen Slope (days)")
+    else:
+        cbar.set_label("Normalized Theil Sen Slope (normalized trend)")
 
     # Legende für Signifikanz
     hatch_patch = mpatches.Patch(
@@ -101,13 +109,6 @@ def process_trend_data_folder(csv_folder_path, shapefile_path, output_folder,
                             basin_type='basin', dpi=600):
     """
     Process all CSV files in a folder and create trend analysis plots
-    
-    Parameters:
-    csv_folder_path: Path to folder containing CSV files with trend data
-    shapefile_path: Path to shapefile (basin or subbasin)
-    output_folder: Path to folder where plots will be saved
-    basin_type: 'basin' or 'subbasin' - determines the ID column name for merging
-    dpi: Resolution for saved plots
     """
     
     # Create output folder if it doesn't exist
@@ -119,12 +120,10 @@ def process_trend_data_folder(csv_folder_path, shapefile_path, output_folder,
     # Determine the ID column based on basin_type
     if basin_type.lower() == 'basin':
         id_column = 'basin_id'
-        # Rename column if needed (assuming MAJ_BAS is the basin ID in shapefile)
         if 'MAJ_BAS' in input_shp.columns:
             input_shp = input_shp.rename(columns={'MAJ_BAS': 'basin_id'})
     elif basin_type.lower() == 'subbasin':
         id_column = 'basin_id'
-        # Rename column if needed (you might need to adjust this based on your shapefile)
         if 'MAJ_BAS' in input_shp.columns:
             input_shp = input_shp.rename(columns={'MAJ_BAS': 'basin_id'})
     else:
@@ -139,40 +138,28 @@ def process_trend_data_folder(csv_folder_path, shapefile_path, output_folder,
     
     print(f"Found {len(csv_files)} CSV files to process...")
     
-    # Process each CSV file
     for csv_file in csv_files:
         try:
             print(f"Processing: {os.path.basename(csv_file)}")
             
-            # Load CSV data
             trend_df = pd.read_csv(csv_file)
-            
-            # Check if required columns exist
-            required_columns = [id_column, 'trend_percent', 'significant']
+            required_columns = [id_column, 'trend_percent', 'theil_sen_slope', 'significant']
             missing_columns = [col for col in required_columns if col not in trend_df.columns]
-            
             if missing_columns:
                 print(f"Warning: Missing columns {missing_columns} in {csv_file}. Skipping...")
                 continue
             
-            # Merge with shapefile
             merged_df = input_shp.merge(trend_df, on=id_column, how='inner')
-            
             if merged_df.empty:
                 print(f"Warning: No matching records found for {csv_file}. Skipping...")
                 continue
             
-            # Extract title from filename (remove extension and replace _ with spaces)
             filename_without_ext = os.path.splitext(os.path.basename(csv_file))[0]
             title = filename_without_ext.replace('_', ' ').title()
-            
-            # Create output filename
             output_filename = f"{filename_without_ext}.png"
             output_path = os.path.join(output_folder, output_filename)
             
-            # Create the plot
             plot_trend_analysis(merged_df, title=title, file_name=filename_without_ext, save_path=output_path, dpi=dpi)
-            
             print(f"Successfully created plot: {output_filename}")
             
         except Exception as e:
@@ -182,16 +169,16 @@ def process_trend_data_folder(csv_folder_path, shapefile_path, output_folder,
     print("Processing completed!")
 
 
+
 # Example usage
 if __name__ == "__main__":
     # Define paths
-    csv_folder = r"C:\Innolab\output\discharge\trend_riverdischarge_params"
+    csv_folder = r"C:\Innolab\output\swe\trend_swe_params"
     basin_shapefile = r"C:\Innolab\Daten_fuer_Christina\Data\Basins\FAO_Basins\alpine_basins.shp"
     subbasin_shapefile = r"C:\Innolab\Daten_fuer_Christina\Data\Basins\Subbasins\alpine_subbasins.shp"  # Adjust path as needed
-    output_folder = r"C:\Innolab\output\discharge\trend_maps_riverdischarge_subbasins"
+    output_folder = r"C:\Innolab\output\swe\trend_maps_swe_FAO_basins"
 
 
-    
     '''
     # Process with basin data
     process_trend_data_folder(
@@ -201,8 +188,9 @@ if __name__ == "__main__":
         basin_type='basin',
         dpi=600
     )
+
     '''
-   
+
    # Process with subbasin data
     process_trend_data_folder(
         csv_folder_path=csv_folder,
@@ -211,3 +199,5 @@ if __name__ == "__main__":
         basin_type='subbasin',
         dpi=600
     )
+    
+    
