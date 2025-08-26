@@ -127,6 +127,29 @@ def calculate_swe_parameters(input_folder, output_folder):
                 snowfall_days_accum = None
                 perc_snowfall_accum = None
                 constant_snowfall_date = None
+            
+            def assign_season(month):
+                if month in [12, 1, 2]:
+                    return "DJF"
+                elif month in [3, 4, 5]:
+                    return "MAM"
+                elif month in [6, 7, 8]:
+                    return "JJA"
+                else:
+                    return "SON"
+
+            group['season'] = group['date'].dt.month.map(assign_season)
+
+            season_stats = group.groupby('season')['swe'].agg(['min', 'max']).reset_index()
+
+            # Um die Ergebnisse pro Jahr und Becken zu den Parametern hinzuzufügen:
+            season_dict = {}
+            for _, row in season_stats.iterrows():
+                season = row['season']
+                season_dict[f"{season}_min_swe"] = row['min']
+                season_dict[f"{season}_max_swe"] = row['max']
+                season_dict[f"{season}_timing_max_swe"] = day_in_hydro_year(group.loc[group['swe'].idxmax(), 'date'])
+                season_dict[f"{season}_timing_min_swe"] = day_in_hydro_year(group.loc[group['swe'].idxmin(), 'date'])
 
             # === Append results ===
             result_rows.append({
@@ -135,25 +158,26 @@ def calculate_swe_parameters(input_folder, output_folder):
                 'hydro_year_str': hydro_year_str,
                 'max_swe': peak_value,
                 'date_of_max_swe': peak_date,
-                'day_of_max_swe': day_in_hydro_year(peak_date),
+                'timing_of_max_swe': day_in_hydro_year(peak_date),
                 'min_swe': min_row['swe'],
                 'date_of_min_swe': min_row['date'],
-                'day_of_min_swe': day_in_hydro_year(min_row['date']),
-                'duration_to_swe50_days': duration_to_swe50,
+                'timing_of_min_swe': day_in_hydro_year(min_row['date']),
+                'melt_duration_to_swe50': duration_to_swe50,
                 'date_swe50': swe50_date,
-                'day_swe50': day_in_hydro_year(pd.to_datetime(swe50_date)) if swe50_date else None,
-                'duration_to_swe10_days': duration_to_swe10,
+                'timing_swe50': day_in_hydro_year(pd.to_datetime(swe50_date)) if swe50_date else None,
+                'melt_duration_to_swe10': duration_to_swe10,
                 'date_swe10': swe10_date,
-                'day_swe10': day_in_hydro_year(pd.to_datetime(swe10_date)) if swe10_date else None,
+                'timing_swe10': day_in_hydro_year(pd.to_datetime(swe10_date)) if swe10_date else None,
                 'accumulation_start_date': acc_start_date,
-                'day_accumulation_start': day_in_hydro_year(acc_start_date) if acc_start_date else None,
-                'accumulation_duration_days': duration_accumulation,
+                'timing_accumulation_start': day_in_hydro_year(acc_start_date) if acc_start_date else None,
+                'accumulation_duration': duration_accumulation,
                 'snowfall_days_accumulation': snowfall_days_accum,
                 'snowfall_percent_accumulation': perc_snowfall_accum,
                 'constant_snowfall_start_date': constant_snowfall_date,
-                'constant_snowfall_start_day': day_in_hydro_year(constant_snowfall_date) if constant_snowfall_date else None,
+                'timing_constant_snowfall_start': day_in_hydro_year(constant_snowfall_date) if constant_snowfall_date else None,
                 'summer_snowfall_accumulation': summer_snowfall_acc,
-                'summer_snowfall_days': summer_snowfall_count,
+                'number_of_days_summer_snowfall': summer_snowfall_count,
+                **season_dict
             })
 
         result_df = pd.DataFrame(result_rows)
@@ -173,20 +197,21 @@ def calculate_swe_parameters(input_folder, output_folder):
 def main():
     start_year = 1980
     end_year = 2024
-    var_name = "swe"
+    var_name = "swe" 
 
+ 
     basins = [
     "4025", "4018", "4021", "4012",
-    "2050013010", "2050477000", "2060491760", "2060536370", "2060548650", "2060551020", "2060551820", "2060552470",
+    "2050477000", "2060491760", "2060536370", "2060548650", "2060551020", "2060551820", "2060552470",
     "2050465610", "2050540100",
     "2050008490", "2050483250", "2050488080", "2050488190", "2050514730", "2050524800", "2050539930", "2050543160",
-    "2050548500", "2050548700", "2050555600", "2050557390", "2050557720", "2050569550", "2050571930", "2050575490",
+    "2050548500", "2050548700", "2050555600", "2050557390", "2050557720", "2050569550", "2050575490",
     "2060016510", "2060023010", "2060420340", "2060429770", "2060441280", "2060548430", "2060548920", "2060551110",
     "2060552460", "2060536360",
     "2050008450", "2050465720", "2050476910", "2050478420", "2050478430", "2050483240", "2050487990", "2050488360",
     "2050514740", "2050525040", "2050543090", "2050555780", "2050557340", "2050557800", "2050569470", "2050575400",
     "2060023020", "2060023320", "2060023330", "2060420240", "2060429670", "2060441290", "2060491750", "2060510560",
-    "2060510690", "2060548280", "2060551950"
+    "2060510690", "2060548280", "2060551950", "2060571930", "2060572030", "2060013010"
     ]
 
     output_timeseries_folder = "output/swe/swe_basins_timeseries"
@@ -195,8 +220,8 @@ def main():
     path_fao = r"C:\Innolab\Daten_fuer_Christina\Data\Snow\FAO_Basins\swe_era_series_all_additive_no_pad.pkl"
     path_subbasins = r"C:\Innolab\Daten_fuer_Christina\Data\Snow\subbasins\swe_era_series_all_additive_no_pad.pkl"
 
-    # process_basins(start_year, end_year, basins, var_name, output_timeseries_folder,
-    #               path_fao, path_subbasins)
+    process_basins(start_year, end_year, basins, var_name, output_timeseries_folder,
+                   path_fao, path_subbasins)
 
     calculate_swe_parameters(output_timeseries_folder, swe_params_folder)
 

@@ -17,8 +17,8 @@ import pandas as pd
 import os
 import glob
 import numpy as np
-from extract_time_series import load_time_series, extract_trend_data
-from hydrological_year import assign_hydrological_year, day_in_hydro_year
+from parameter_trends.extract_time_series import load_time_series, extract_trend_data
+from parameter_trends.hydrological_year import assign_hydrological_year, day_in_hydro_year
 
 
 # === Function to extract time series data per basin and hydrological year
@@ -75,7 +75,6 @@ def calculate_precip_parameters(input_folder, output_folder, var_name):
             # Annual metrics
             annual_sum = group[var_name].sum()
             annual_mean = group[var_name].mean()
-            print(annual_sum)
             max_row = group.loc[group[var_name].idxmax()]
             min_row = group.loc[group[var_name].idxmin()]
 
@@ -96,19 +95,18 @@ def calculate_precip_parameters(input_folder, output_folder, var_name):
                     s_min = season_group.loc[season_group[var_name].idxmin()]
                     seasonal_data[season] = {
                         "sum": s_sum,
-                        "mean": s_mean,
-                        "max_val": s_max[var_name],
+                        "max": s_max[var_name],
                         "max_date": s_max['date'],
                         "max_day": day_in_hydro_year(s_max['date']),
-                        "min_val": s_min[var_name],
+                        "min": s_min[var_name],
                         "min_date": s_min['date'],
                         "min_day": day_in_hydro_year(s_min['date']),
                     }
                 else:
                     seasonal_data[season] = {
                         "sum": None, "mean": None,
-                        "max_val": None, "max_date": None, "max_day": None,
-                        "min_val": None, "min_date": None, "min_day": None,
+                        "max": None, "max_date": None, "max_day": None,
+                        "min": None, "min_date": None, "min_day": None,
                     }
 
             # Monthly metrics
@@ -121,19 +119,22 @@ def calculate_precip_parameters(input_folder, output_folder, var_name):
                     m_min = month_group.loc[month_group[var_name].idxmin()]
                     monthly_data[month] = {
                         "sum": m_sum,
-                        "mean": m_mean,
-                        "max_val": m_max[var_name],
+                        "max": m_max[var_name],
                         "max_date": m_max['date'],
                         "max_day": day_in_hydro_year(m_max['date']),
-                        "min_val": m_min[var_name],
+                        "min": m_min[var_name],
                         "min_date": m_min['date'],
                         "min_day": day_in_hydro_year(m_min['date']),
                     }
                 else:
                     monthly_data[month] = {
-                        "sum": None, "mean": None,
-                        "max_val": None, "max_date": None, "max_day": None,
-                        "min_val": None, "min_date": None, "min_day": None,
+                        "sum": None, 
+                        "max": None, 
+                        "max_date": None, 
+                        "max_day": None,
+                        "min": None, 
+                        "min_date": None, 
+                        "min_day": None,
                     }
             
 
@@ -146,20 +147,20 @@ def calculate_precip_parameters(input_folder, output_folder, var_name):
                 "annual_mean": annual_mean,
                 "annual_max": max_row[var_name],
                 "annual_max_date": max_row['date'],
-                "annual_max_day": day_in_hydro_year(max_row['date']),
+                "timing_annual_max": day_in_hydro_year(max_row['date']),
                 "annual_min": min_row[var_name],
                 "annual_min_date": min_row['date'],
-                "annual_min_day": day_in_hydro_year(min_row['date']),
+                "timing_annual_min": day_in_hydro_year(min_row['date']),
             }
 
             # Add seasonal to row
             for season in seasons:
-                for metric in ["sum", "mean", "max_val", "max_date", "max_day", "min_val", "min_date", "min_day"]:
+                for metric in ["sum", "max", "min"]:
                     row[f"{season}_{metric}"] = seasonal_data[season][metric]
 
             # Add monthly to row
             for month in range(1, 13):
-                for metric in ["sum", "mean", "max_val", "max_date", "max_day", "min_val", "min_date", "min_day"]:
+                for metric in ["sum", "max", "min"]:
                     row[f"month_{month}_{metric}"] = monthly_data.get(month, {}).get(metric, None)
 
             valid_month_sums = {m: monthly_data[m]["sum"] for m in monthly_data if monthly_data[m]["sum"] is not None}
@@ -192,15 +193,15 @@ def calculate_precip_parameters(input_folder, output_folder, var_name):
                 row["min_month"] = min_month
                 row["max_month_sum"] = max_month_sum
                 row["min_month_sum"] = min_month_sum
-                row["month_sum_diff"] = diff_month_sum
-                row["month_distance_hydro"] = month_distance
+                row["month_sum_difference"] = diff_month_sum
+                row["month_difference"] = month_distance
             else:
                 row["max_month"] = None
                 row["min_month"] = None
                 row["max_month_sum"] = None
                 row["min_month_sum"] = None
-                row["month_sum_diff"] = None
-                row["month_distance_hydro"] = None
+                row["month_sum_difference"] = None
+                row["month_difference"] = None
                 row["monthly_cv"] = None
                 row["pci"] = None
             result_rows.append(row)
@@ -227,16 +228,16 @@ def main():
 
     basins = [
     "4025", "4018", "4021", "4012",
-    "2050013010", "2050477000", "2060491760", "2060536370", "2060548650", "2060551020", "2060551820", "2060552470",
+    "2050477000", "2060491760", "2060536370", "2060548650", "2060551020", "2060551820", "2060552470",
     "2050465610", "2050540100",
     "2050008490", "2050483250", "2050488080", "2050488190", "2050514730", "2050524800", "2050539930", "2050543160",
-    "2050548500", "2050548700", "2050555600", "2050557390", "2050557720", "2050569550", "2050571930", "2050575490",
+    "2050548500", "2050548700", "2050555600", "2050557390", "2050557720", "2050569550", "2050575490",
     "2060016510", "2060023010", "2060420340", "2060429770", "2060441280", "2060548430", "2060548920", "2060551110",
     "2060552460", "2060536360",
     "2050008450", "2050465720", "2050476910", "2050478420", "2050478430", "2050483240", "2050487990", "2050488360",
     "2050514740", "2050525040", "2050543090", "2050555780", "2050557340", "2050557800", "2050569470", "2050575400",
     "2060023020", "2060023320", "2060023330", "2060420240", "2060429670", "2060441290", "2060491750", "2060510560",
-    "2060510690", "2060548280", "2060551950"
+    "2060510690", "2060548280", "2060551950", "2060571930", "2060572030", "2060013010"
     ]
 
     output_folder_ts = "output/rain/precipitation_basins_timeseries"

@@ -16,21 +16,26 @@ params = r"C:\Innolab\output\swe\swe_parameter_per_hydro_year\swe_params_all_bas
 
 variables_swe = [
     'max_swe', # SWE Maximum
-    'day_of_max_swe', # Day of SWEmax in hydrological year
+    'timing_of_max_swe', # Day of SWEmax in hydrological year
     'min_swe', # SWE Minimum
-    'day_of_min_swe', # Day of SWEmin in hydrological year
-    'duration_to_swe50_days', # Melt duration from SWEmax to SWE50
-    'day_swe50', # Day of SWE50 in hydrological year
-    'duration_to_swe10_days', # Melt duration from SWEmax to SWE10
-    'day_swe10', # Day of SWE10 in hydrological year
-    'day_accumulation_start', # Day of accumulation start in hydrological year
-    'accumulation_duration_days', # Duration from accumulation start until SWEmax
+    'timing_of_min_swe', # Day of SWEmin in hydrological year
+    'melt_duration_to_swe50', # Melt duration from SWEmax to SWE50
+    'timing_swe50', # Day of SWE50 in hydrological year
+    'melt_duration_to_swe10', # Melt duration from SWEmax to SWE10
+    'timing_swe10', # Day of SWE10 in hydrological year
+    'timing_accumulation_start', # Day of accumulation start in hydrological year
+    'accumulation_duration', # Duration from accumulation start until SWEmax
     'snowfall_days_accumulation', # Number of days where SWE_diff > 0 during accumulation
     'snowfall_percent_accumulation', # Percentage of data points with SWE_diff > 0 during accumulation
-    'constant_snowfall_start_day', # Data point where SWE_diff doesn't decrease until SWEmax (?)
+    'timing_constant_snowfall_start', # Data point where SWE_diff doesn't decrease until SWEmax (?)
     'summer_snowfall_accumulation', # Total snowfall during summer months
-    'summer_snowfall_count', # Number of days with snowfall during summer months
+    'number_of_days_summer_snowfall', # Number of days with snowfall during summer months
+    'DJF_min_swe', 'DJF_max_swe', 'DJF_timing_max_swe', 'DJF_timing_min_swe', # Winter metrics
+    'MAM_min_swe', 'MAM_max_swe', 'MAM_timing_max_swe', 'MAM_timing_min_swe', # Spring metrics
+    'JJA_min_swe', 'JJA_max_swe', 'JJA_timing_max_swe', 'JJA_timing_min_swe', # Summer metrics
+    'SON_min_swe', 'SON_max_swe', 'SON_timing_max_swe', 'SON_timing_min_swe' # Fall metrics
 ]
+
 
 # Step 1: Daten einlesen
 df = pd.read_csv(params)

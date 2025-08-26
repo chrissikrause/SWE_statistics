@@ -16,8 +16,8 @@
 import pandas as pd
 import os
 import glob
-from extract_time_series import extract_trend_data, load_time_series
-from hydrological_year import assign_hydrological_year, day_in_hydro_year
+from parameter_trends.extract_time_series import extract_trend_data, load_time_series
+from parameter_trends.hydrological_year import assign_hydrological_year, day_in_hydro_year
 
 # === Function to extract time series data per basin and hydrological year
 def process_basins(start_year, end_year, basins, var_name, output_folder_ts,
@@ -75,7 +75,6 @@ def calculate_discharge_parameters(input_folder, output_folder, var_name):
             # === Annual max/min ===
             max_row = group.loc[group[var_name].idxmax()]
             min_row = group.loc[group[var_name].idxmin()]
-            annual_mean = group[var_name].mean()
             annual_sum = group[var_name].sum()
 
             # === Seasonal stats ===
@@ -86,11 +85,11 @@ def calculate_discharge_parameters(input_folder, output_folder, var_name):
                 "SON": [9, 10, 11]
             }
 
-            seasonal_means, seasonal_max, seasonal_min = {}, {}, {}
+            seasonal_sums, seasonal_max, seasonal_min = {}, {}, {}
             for season, months in seasons.items():
                 season_data = group[group['date'].dt.month.isin(months)]
                 if not season_data.empty:
-                    seasonal_means[season] = season_data[var_name].mean()
+                    seasonal_sums[season] = season_data[var_name].sum()
 
                     s_max_row = season_data.loc[season_data[var_name].idxmax()]
                     s_min_row = season_data.loc[season_data[var_name].idxmin()]
@@ -105,7 +104,7 @@ def calculate_discharge_parameters(input_folder, output_folder, var_name):
                         "day": day_in_hydro_year(s_min_row['date'])
                     }
                 else:
-                    seasonal_means[season] = None
+                    seasonal_sums[season] = None
                     seasonal_max[season] = {"value": None, "date": None, "day": None}
                     seasonal_min[season] = {"value": None, "date": None, "day": None}
 
@@ -149,29 +148,28 @@ def calculate_discharge_parameters(input_folder, output_folder, var_name):
                 "hydro_year_str": hydro_year_str,
                 "max_discharge": max_row[var_name],
                 "date_of_max": max_row['date'],
-                "day_of_max": day_in_hydro_year(max_row['date']),
+                "timing_annual_max": day_in_hydro_year(max_row['date']),
                 "min_discharge": min_row[var_name],
                 "date_of_min": min_row['date'],
-                "day_of_min": day_in_hydro_year(min_row['date']),
-                "annual_mean": annual_mean,
+                "timing_annual_min": day_in_hydro_year(min_row['date']),
                 "annual_sum": annual_sum,
 
                 # Monthly parameters
-                "max_discharge_month": max_discharge_month,
-                "max_discharge_month_sum": max_discharge_sum,
-                "min_discharge_month": min_discharge_month, 
-                "min_discharge_month_sum": min_discharge_sum,
-                "discharge_month_diff": discharge_month_diff,
-                "month_distance": month_distance,
+                "max_month": max_discharge_month,
+                "max_month_sum": max_discharge_sum,
+                "min_month": min_discharge_month, 
+                "min_month_sum": min_discharge_sum,
+                "amount_month_diff": discharge_month_diff,
+                "month_difference": month_distance,
 
                 # Seasonal parameters
-                **{f"{season}_mean": seasonal_means[season] for season in seasons},
+                **{f"{season}_sum": seasonal_sums[season] for season in seasons},
                 **{f"{season}_max": seasonal_max[season]["value"] for season in seasons},
                 **{f"{season}_max_date": seasonal_max[season]["date"] for season in seasons},
-                **{f"{season}_max_day": seasonal_max[season]["day"] for season in seasons},
+                **{f"timing_{season}_max": seasonal_max[season]["day"] for season in seasons},
                 **{f"{season}_min": seasonal_min[season]["value"] for season in seasons},
                 **{f"{season}_min_date": seasonal_min[season]["date"] for season in seasons},
-                **{f"{season}_min_day": seasonal_min[season]["day"] for season in seasons},
+                **{f"timing_{season}_min": seasonal_min[season]["day"] for season in seasons},
             })
 
         result_df = pd.DataFrame(result_rows)
@@ -196,16 +194,16 @@ def main():
 
     basins = [
     "4025", "4018", "4021", "4012",
-    "2050013010", "2050477000", "2060491760", "2060536370", "2060548650", "2060551020", "2060551820", "2060552470",
+    "2050477000", "2060491760", "2060536370", "2060548650", "2060551020", "2060551820", "2060552470",
     "2050465610", "2050540100",
     "2050008490", "2050483250", "2050488080", "2050488190", "2050514730", "2050524800", "2050539930", "2050543160",
-    "2050548500", "2050548700", "2050555600", "2050557390", "2050557720", "2050569550", "2050571930", "2050575490",
+    "2050548500", "2050548700", "2050555600", "2050557390", "2050557720", "2050569550", "2050575490",
     "2060016510", "2060023010", "2060420340", "2060429770", "2060441280", "2060548430", "2060548920", "2060551110",
     "2060552460", "2060536360",
     "2050008450", "2050465720", "2050476910", "2050478420", "2050478430", "2050483240", "2050487990", "2050488360",
     "2050514740", "2050525040", "2050543090", "2050555780", "2050557340", "2050557800", "2050569470", "2050575400",
     "2060023020", "2060023320", "2060023330", "2060420240", "2060429670", "2060441290", "2060491750", "2060510560",
-    "2060510690", "2060548280", "2060551950"
+    "2060510690", "2060548280", "2060551950", "2060571930", "2060572030", "2060013010"
     ]
 
     output_folder_ts = "output/discharge/riverdischarge_basins_timeseries"
